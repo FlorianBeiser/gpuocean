@@ -872,6 +872,7 @@ __global__ void cdklm_swe_2D(
         const float L3  = - flux_diff.z + st2;
 
         float* const eta_row = (float*) ((char*) eta1_ptr_ + eta1_pitch_*tj);
+        float* const eta_row_in = (float*) ((char*) eta0_ptr_ + eta0_pitch_*tj);
         float* const hu_row  = (float*) ((char*) hu1_ptr_  +  hu1_pitch_*tj);
         float* const hv_row  = (float*) ((char*) hv1_ptr_  +  hv1_pitch_*tj);
 
@@ -998,7 +999,7 @@ __global__ void cdklm_swe_2D(
             hu_out_row[ti]  = updated_hu;
             hv_out_row[ti]  = updated_hv;
         } else {
-            eta_row[ti] = fmaxf(-Hm + KPSIMULATOR_DEPTH_CUTOFF, updated_eta);
+            eta_row[ti] = eta_row_in[ti];
             hu_row[ti]  = updated_hu;
             hv_row[ti]  = updated_hv;
         }
