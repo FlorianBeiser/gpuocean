@@ -451,7 +451,11 @@ __global__ void cdklm_swe_2D(
 
         // Boundary conditions (1: wall, 2: periodic, 3: open boundary (flow relaxation scheme))
         // Note: these are packed north, east, south, west boolean bits into an int
-        const int boundary_conditions_) {
+        const int boundary_conditions_,
+    
+        // Boolean to indicate whether eta should be updated or not
+        const bool static_eta
+        ) {
             
     //const float land_value_ = 1.0e20;
 
@@ -872,7 +876,6 @@ __global__ void cdklm_swe_2D(
         const float L3  = - flux_diff.z + st2;
 
         float* const eta_row = (float*) ((char*) eta1_ptr_ + eta1_pitch_*tj);
-        float* const eta_row_in = (float*) ((char*) eta0_ptr_ + eta0_pitch_*tj);
         float* const hu_row  = (float*) ((char*) hu1_ptr_  +  hu1_pitch_*tj);
         float* const hv_row  = (float*) ((char*) hv1_ptr_  +  hv1_pitch_*tj);
 
@@ -999,7 +1002,13 @@ __global__ void cdklm_swe_2D(
             hu_out_row[ti]  = updated_hu;
             hv_out_row[ti]  = updated_hv;
         } else {
-            eta_row[ti] = eta_row_in[ti];
+            if (static_eta){
+                float* const eta_row_in = (float*) ((char*) eta0_ptr_ + eta0_pitch_*tj);
+                eta_row[ti] = eta_row_in[ti];
+            }
+            else{
+                eta_row[ti] = fmaxf(-Hm + KPSIMULATOR_DEPTH_CUTOFF, updated_eta);
+            }
             hu_row[ti]  = updated_hu;
             hv_row[ti]  = updated_hv;
         }

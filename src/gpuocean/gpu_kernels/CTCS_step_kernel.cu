@@ -60,7 +60,11 @@ __global__ void ctcsStepKernel(
         float* V1_ptr_, const int V1_pitch_, // V^n 
     
         // Wind stress parameters
-        const float wind_stress_t_) {
+        const float wind_stress_t_,
+    
+        // Boolean to indicate whether eta should be updated or not
+        const bool static_eta
+        ) {
         
     __shared__ float H_shared[block_height+2][block_width+2];
     __shared__ float eta1_shared[block_height+2][block_width+2];
@@ -400,7 +404,13 @@ __global__ void ctcsStepKernel(
     
     //Write to main memory for internal cells
     if (ti > 0 && ti < nx_+1 && tj > 0 && tj < ny_+1) {
-        eta0_row[ti] = eta2;
+        if (static_eta){
+            float* eta1_row_in = (float*) ((char*) eta1_ptr_ + eta1_pitch_*tj);
+            eta0_row[ti]  = eta1_row_in[ti];
+        }
+        else {
+            eta0_row[ti] = eta2;
+        }
     }
     
     

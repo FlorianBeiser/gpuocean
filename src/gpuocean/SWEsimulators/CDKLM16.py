@@ -81,7 +81,8 @@ class CDKLM16(Simulator.Simulator):
                  desingularization_eps = 1.0e-1, \
                  depth_cutoff = 1.0e-5, \
                  block_width=12, block_height=32, num_threads_dt=256,
-                 block_width_model_error=16, block_height_model_error=16):
+                 block_width_model_error=16, block_height_model_error=16,
+                 static_eta = False):
         """
         Initialization routine
         eta0: Initial deviation from mean sea level incl ghost cells, (nx+2)*(ny+2) cells
@@ -141,6 +142,9 @@ class CDKLM16(Simulator.Simulator):
         
         # Boundary conditions
         self.boundary_conditions = boundary_conditions
+
+        # Rigid lid
+        self.static_eta = static_eta
         
         #Compensate f for reference cell (first cell in internal of domain)
         north = np.array([np.sin(angle[0,0]), np.cos(angle[0,0])])
@@ -211,7 +215,7 @@ class CDKLM16(Simulator.Simulator):
         
         # Get CUDA functions and define data types for prepared_{async_}call()
         self.cdklm_swe_2D = self.kernel.get_function("cdklm_swe_2D")
-        self.cdklm_swe_2D.prepare("fiPiPiPiPiPiPiPiPiffi")
+        self.cdklm_swe_2D.prepare("fiPiPiPiPiPiPiPiPiffib")
         self.update_wind_stress(self.kernel, self.cdklm_swe_2D)
         
         # CUDA functions for finding max time step size:
@@ -635,7 +639,7 @@ class CDKLM16(Simulator.Simulator):
                            self.bathymetry.Bm.data.gpudata, self.bathymetry.Bm.pitch, \
                            self.bathymetry.mask_value,
                            wind_stress_t, \
-                           boundary_conditions)
+                           boundary_conditions, self.static_eta)
             
     
     def perturbState(self, q0_scale=1):

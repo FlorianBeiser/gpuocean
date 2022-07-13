@@ -58,7 +58,8 @@ class CTCS(Simulator.Simulator):
                  comm=None, \
                  ignore_ghostcells=False, \
                  offset_x=0, offset_y=0, \
-                 block_width=16, block_height=16):
+                 block_width=16, block_height=16,
+                 static_eta=False):
         """
         Initialization routine
         H: Water depth incl ghost cells, (nx+2)*(ny+2) cells
@@ -99,6 +100,8 @@ class CTCS(Simulator.Simulator):
             nx = nx + boundary_conditions.spongeCells[1] + boundary_conditions.spongeCells[3] - 2*ghost_cells_x
             ny = ny + boundary_conditions.spongeCells[0] + boundary_conditions.spongeCells[2] - 2*ghost_cells_y
             y_zero_reference_cell = y_zero_reference_cell + boundary_conditions.spongeCells[2]
+
+        self.static_eta = static_eta
 
         # self.<parameters> are sat in parent constructor:
         rk_order = None
@@ -147,7 +150,7 @@ class CTCS(Simulator.Simulator):
         self.ctcsStepKernel = self.step_kernel.get_function("ctcsStepKernel")
         
         # Prepare kernel lauches
-        self.ctcsStepKernel.prepare("iiifffffffffPiPiPiPiPiPiPif")
+        self.ctcsStepKernel.prepare("iiifffffffffPiPiPiPiPiPiPifb")
         
         # Set up textures
         self.update_wind_stress(self.step_kernel, self.ctcsStepKernel)
@@ -313,7 +316,8 @@ class CTCS(Simulator.Simulator):
                     self.gpu_data.hu1.data.gpudata, self.gpu_data.hu1.pitch,   # U^{n} \
                     self.gpu_data.hv1.data.gpudata, self.gpu_data.hv1.pitch,   # V^{n} \
 
-                    wind_stress_t)
+                    wind_stress_t,
+                    self.static_eta)
                    
             self.bc_kernel.boundaryConditionEta(self.gpu_stream, self.gpu_data.h0)
             self.bc_kernel.boundaryConditionU(self.gpu_stream, self.gpu_data.hu0)
