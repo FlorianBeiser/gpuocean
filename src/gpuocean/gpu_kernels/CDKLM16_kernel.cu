@@ -537,7 +537,9 @@ __global__ void cdklm_swe_2D(
 
         // Boundary conditions (1: wall, 2: periodic, 3: open boundary (flow relaxation scheme))
         // Note: these are packed north, east, south, west boolean bits into an int
-        const int boundary_conditions_) {
+        const int boundary_conditions_,
+    
+        float* fluxes_N_ptr_, const int fluxes_N_pitch_) {
             
     //const float land_value_ = 1.0e20;
 
@@ -765,7 +767,42 @@ __global__ void cdklm_swe_2D(
     // North and east vector in xy-coordinate system
     const float2 north = getNorth(ti, tj);
     const float2 east = make_float2(north.y, -north.x);
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (ti > 1 && ti < NX+2 && tj > 1 && tj < NY+2) {
+        // Brute force code...
+        if (tj==2){
+            float* const fluxes_N_row = (float*) ((char*) fluxes_N_ptr_);
+            fluxes_N_row[ti] = ti;
+            fluxes_N_row[ti + NX+4 ] = tj;
+            fluxes_N_row[ti + 2*(NX+4) ] = NX;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     { //Scope
         const float coriolis_f_left    = coriolisF(ti-1,   tj);
         const float coriolis_f_right   = coriolisF(ti+1,   tj);
