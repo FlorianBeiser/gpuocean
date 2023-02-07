@@ -669,13 +669,23 @@ __global__ void cdklm_swe_2D(
             const float left_fv  = (local_north.x*left_u + local_north.y*left_v)*left_coriolis_f;
             const float center_fv = (local_north.x*center_u + local_north.y*center_v)*center_coriolis_f;
             const float right_fv  = (local_north.x*right_u + local_north.y*right_v)*right_coriolis_f;
-            
-            const float V_constant = DX/(2.0f*GRAV);
+
+#ifdef SPATIAL_GRAVITY      
+            const float g_backward= GRAV / fmaxf(1 , 1 + Hm/(R[0][l][k-1]-Hm));
+            const float g_central = GRAV / fmaxf(1 , 1 + Hm/(R[0][l][k] -Hm));
+            const float g_forward = GRAV / fmaxf(1 , 1 + Hm/(R[0][l][k+1]-Hm));
+#else
+            const float g_backward= GRAV;
+            const float g_central = GRAV;
+            const float g_forward = GRAV;
+#endif
+
+            const float V_constant = DX/(2.0f*g_central);
 
             // Qx[2] = Kx, which we need to find differently than ux and vx
-            const float backward = THETA*GRAV*(center_eta - left_eta   - V_constant*(center_fv + left_fv ) );
-            const float central  =  0.5f*GRAV*(right_eta  - left_eta   - V_constant*(right_fv + 2.0f*center_fv + left_fv) );
-            const float forward  = THETA*GRAV*(right_eta  - center_eta - V_constant*(center_fv + right_fv) );
+            const float backward = THETA*g_backward*(center_eta - left_eta   - V_constant*(center_fv + left_fv ) );
+            const float central  =  0.5f*g_central *(right_eta  - left_eta   - V_constant*(right_fv + 2.0f*center_fv + left_fv) );
+            const float forward  = THETA*g_forward *(right_eta  - center_eta - V_constant*(center_fv + right_fv) );
 
             // Qx[2] is really dx*Kx
             Qx[2][j][i] = minmodRaw(backward, central, forward);
@@ -722,8 +732,14 @@ __global__ void cdklm_swe_2D(
     __syncthreads();
     
     // Reconstruct eta_west, eta_east for use in bathymetry source term
-    const float eta_west = R[0][ty+2][tx+2] - (Qx[2][ty][tx+1] + DX*coriolis_f_central*R[2][ty+2][tx+2])/(2.0f*GRAV);
-    const float eta_east = R[0][ty+2][tx+2] + (Qx[2][ty][tx+1] + DX*coriolis_f_central*R[2][ty+2][tx+2])/(2.0f*GRAV);
+#if SPATIAL_GRAVITY
+    const float g = GRAV / fmaxf(1 , 1 + Hm/(R[0][ty+2][tx+2]-Hm));
+#else 
+    const float g = GRAV;
+#endif
+
+    const float eta_west = R[0][ty+2][tx+2] - (Qx[2][ty][tx+1] + DX*coriolis_f_central*R[2][ty+2][tx+2])/(2.0f*g);
+    const float eta_east = R[0][ty+2][tx+2] + (Qx[2][ty][tx+1] + DX*coriolis_f_central*R[2][ty+2][tx+2])/(2.0f*g);
     
     __syncthreads();
     
@@ -776,11 +792,21 @@ __global__ void cdklm_swe_2D(
             const float center_fu = (local_east.x*center_u + local_east.y*center_v)*center_coriolis_f;
             const float upper_fu  = (local_east.x*upper_u  + local_east.y*upper_v )*upper_coriolis_f;
 
-            const float U_constant = DY/(2.0f*GRAV);
+#ifdef SPATIAL_GRAVITY      
+            const float g_backward= GRAV / fmaxf(1 , 1 + Hm/(R[0][l-1][k]-Hm));
+            const float g_central = GRAV / fmaxf(1 , 1 + Hm/(R[0][l  ][k] -Hm));
+            const float g_forward = GRAV / fmaxf(1 , 1 + Hm/(R[0][l+1][k]-Hm));
+#else
+            const float g_backward= GRAV;
+            const float g_central = GRAV;
+            const float g_forward = GRAV;
+#endif
 
-            const float backward = THETA*GRAV*(center_eta - lower_eta  + U_constant*(center_fu + lower_fu ) );
-            const float central  =  0.5f*GRAV*(upper_eta  - lower_eta  + U_constant*(upper_fu + 2.0f*center_fu + lower_fu) );
-            const float forward  = THETA*GRAV*(upper_eta  - center_eta + U_constant*(center_fu + upper_fu) );
+            const float U_constant = DY/(2.0f*g_central);
+
+            const float backward = THETA*g_backward*(center_eta - lower_eta  + U_constant*(center_fu + lower_fu ) );
+            const float central  =  0.5f*g_central *(upper_eta  - lower_eta  + U_constant*(upper_fu + 2.0f*center_fu + lower_fu) );
+            const float forward  = THETA*g_forward *(upper_eta  - center_eta + U_constant*(center_fu + upper_fu) );
 
             // Qy[2] is really dy*Ly
             Qx[2][j][i] = minmodRaw(backward, central, forward);
@@ -819,8 +845,14 @@ __global__ void cdklm_swe_2D(
     }
 
     // Reconstruct eta_north, eta_south for use in bathymetry source term
-    const float eta_south = R[0][ty+2][tx+2] - (Qx[2][ty+1][tx] - DY*coriolis_f_central*R[1][ty+2][tx+2])/(2.0f*GRAV);
-    const float eta_north = R[0][ty+2][tx+2] + (Qx[2][ty+1][tx] - DY*coriolis_f_central*R[1][ty+2][tx+2])/(2.0f*GRAV);
+#if SPATIAL_GRAVITY
+    const float g = GRAV / fmaxf(1 , 1 + Hm/(R[0][ty+2][tx+2]-Hm));
+#else
+    const float g = GRAV;
+#endif
+
+    const float eta_south = R[0][ty+2][tx+2] - (Qx[2][ty+1][tx] - DY*coriolis_f_central*R[1][ty+2][tx+2])/(2.0f*g);
+    const float eta_north = R[0][ty+2][tx+2] + (Qx[2][ty+1][tx] - DY*coriolis_f_central*R[1][ty+2][tx+2])/(2.0f*g);
     __syncthreads();
     
     //Sum fluxes and advance in time for all internal cells
@@ -862,8 +894,13 @@ __global__ void cdklm_swe_2D(
                 // TODO: We might want to use the mean of the reconstructed eta's at the faces here, instead of R[0]...
                 //const float bathymetry1 = GRAV*(R[0][j][i] + Hm)*H_x;
                 //const float bathymetry2 = GRAV*(R[0][j][i] + Hm)*H_y;
-                const float bathymetry1 = GRAV*(eta_we + Hm)*H_x;
-                const float bathymetry2 = GRAV*(eta_sn + Hm)*H_y;
+#if SPATIAL_GRAVITY
+                const float g = GRAV / fmaxf(1 , 1 + Hm/(R[0][j][i]-Hm));
+#else   
+                const float g = GRAV;
+#endif
+                const float bathymetry1 = g*(eta_we + Hm)*H_x;
+                const float bathymetry2 = g*(eta_sn + Hm)*H_y;
                 
                 //Project momenta onto north/east axes
                 const float hu_east =  hu*east.x + hv*east.y;

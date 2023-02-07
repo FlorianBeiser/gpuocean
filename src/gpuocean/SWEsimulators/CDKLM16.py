@@ -65,6 +65,7 @@ class CDKLM16(Simulator.Simulator):
                  atmospheric_pressure=AtmosphericPressure.AtmosphericPressure(), \
                  boundary_conditions=Common.BoundaryConditions(), \
                  boundary_conditions_data=Common.BoundaryConditionsData(), \
+                 spatial_gravity=False, \
                  small_scale_perturbation=False, \
                  small_scale_perturbation_amplitude=None, \
                  small_scale_perturbation_interpolation_factor = 1, \
@@ -196,6 +197,7 @@ class CDKLM16(Simulator.Simulator):
                          'FRIC': "{:.12f}f".format(self.r),
                          'RHO_O': "{:.12f}f".format(rho_o),
                          'WIND_STRESS_FACTOR': "{:.12f}f".format(self.wind_stress_factor), 
+                         'SPATIAL_GRAVITY': int(spatial_gravity)
         }
         
         #Get kernels
