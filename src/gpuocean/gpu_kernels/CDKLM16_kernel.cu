@@ -77,11 +77,11 @@ inline float2 getNorth(const int i, const int j) {
 }
 
 
-__device__ float3 CDKLM16_F_func(const float3 Q) {
+__device__ float3 CDKLM16_F_func(const float3 Q, const float g) {
     float3 F;
 
     F.x = Q.x*Q.y;                        //h*u
-    F.y = Q.x*Q.y*Q.y + 0.5f*GRAV*Q.x*Q.x;   //h*u*u + 0.5f*g*h*h;
+    F.y = Q.x*Q.y*Q.y + 0.5f*g*Q.x*Q.x;   //h*u*u + 0.5f*g*h*h;
     F.z = Q.x*Q.y*Q.z;                    //h*u*v;
 
     return F;
@@ -98,7 +98,7 @@ __device__ float3 CDKLM16_F_func(const float3 Q) {
   * (h, hu, hv). 
   * Note also that u and v are desingularized from the start.
   */
-__device__ float3 CDKLM16_flux(float3 Qm, float3 Qp) {
+__device__ float3 CDKLM16_flux(float3 Qm, float3 Qp, float gm, float gp) {
     
     // Contribution from plus cell
     float3 Fp = make_float3(0.0f, 0.0f, 0.0f);
@@ -106,9 +106,9 @@ __device__ float3 CDKLM16_flux(float3 Qm, float3 Qp) {
     float cp = 0.0f;
     
     if (Qp.x > KPSIMULATOR_DEPTH_CUTOFF) {
-        Fp = CDKLM16_F_func(Qp);
+        Fp = CDKLM16_F_func(Qp, gp);
         up = Qp.y;         // u
-        cp = sqrtf(GRAV*Qp.x); // sqrt(GRAV*h)
+        cp = sqrtf(gp*Qp.x); // sqrt(GRAV*h)
     }
 
     // Contribution from plus cell
@@ -117,9 +117,9 @@ __device__ float3 CDKLM16_flux(float3 Qm, float3 Qp) {
     float cm = 0.0f;
 
     if (Qm.x > KPSIMULATOR_DEPTH_CUTOFF) {
-        Fm = CDKLM16_F_func(Qm);
+        Fm = CDKLM16_F_func(Qm, gm);
         um = Qm.y;         // u
-        cm = sqrtf(GRAV*Qm.x); // sqrt(GRAV*h)
+        cm = sqrtf(gm*Qm.x); // sqrt(GRAV*h)
     }
     
     const float am = min(min(um-cm, up-cp), 0.0f); // largest negative wave speed
@@ -180,13 +180,16 @@ void adjustSlopes_x(const int bx, const int by,
         
         const float H_west = 0.5f*(Hi[H_j][H_i  ] + Hi[H_j+1][H_i  ]);
         const float H_east = 0.5f*(Hi[H_j][H_i+1] + Hi[H_j+1][H_i+1]);
+
+        const float g_west = ?;
+        const float g_east = ?;
         
-        const float h_west = eta + H_west - (Qx[2][j][i] + dxfv)/(2.0f*GRAV);
-        const float h_east = eta + H_east + (Qx[2][j][i] + dxfv)/(2.0f*GRAV);
+        const float h_west = eta + H_west - (Qx[2][j][i] + dxfv)/(2.0f*g_west);
+        const float h_east = eta + H_east + (Qx[2][j][i] + dxfv)/(2.0f*g_east);
         
         // Adjust if negative water level
-        Qx[2][j][i] = (h_west > 0) ? Qx[2][j][i] : -dxfv + 2.0f*GRAV*(eta + H_west);
-        Qx[2][j][i] = (h_east > 0) ? Qx[2][j][i] : -dxfv - 2.0f*GRAV*(eta + H_east);
+        Qx[2][j][i] = (h_west > 0) ? Qx[2][j][i] : -dxfv + 2.0f*g_west*(eta + H_west);
+        Qx[2][j][i] = (h_east > 0) ? Qx[2][j][i] : -dxfv - 2.0f*g_east*(eta + H_east);
     }
 }
 
@@ -230,13 +233,16 @@ void adjustSlopes_y(const int bx, const int by,
         
         const float H_south = 0.5f*(Hi[H_j  ][H_i] + Hi[H_j  ][H_i+1]);
         const float H_north = 0.5f*(Hi[H_j+1][H_i] + Hi[H_j+1][H_i+1]);
+
+        const float g_south = ?;
+        const float g_north = ?;
         
-        const float h_south = eta + H_south - (Qx[2][j][i] - dyfu)/(2.0f*GRAV);
-        const float h_north = eta + H_north + (Qx[2][j][i] - dyfu)/(2.0f*GRAV);
+        const float h_south = eta + H_south - (Qx[2][j][i] - dyfu)/(2.0f*g_south);
+        const float h_north = eta + H_north + (Qx[2][j][i] - dyfu)/(2.0f*g_north);
         
         // Adjust if negative water level
-        Qx[2][j][i] = (h_south > 0) ? Qx[2][j][i] : dyfu + 2.0f*GRAV*(eta + H_south);
-        Qx[2][j][i] = (h_north > 0) ? Qx[2][j][i] : dyfu - 2.0f*GRAV*(eta + H_north);
+        Qx[2][j][i] = (h_south > 0) ? Qx[2][j][i] : dyfu + 2.0f*g_south*(eta + H_south);
+        Qx[2][j][i] = (h_north > 0) ? Qx[2][j][i] : dyfu - 2.0f*g_north*(eta + H_north);
     }
 }
 
@@ -290,10 +296,13 @@ float3 computeFFaceFlux(const int i, const int j, const int bx,
     //Reconstruct momentum along north
     const float vp_north = up*north.x + vp*north.y;
     const float vm_north = um*north.x + vm*north.y;
+
+    const float gp = ?;
+    const float gm = ?;
     
     // Reconstruct h
-    const float hp = fmaxf(0.0f, eta_bar_p + H_face - (Kx_p + DX*coriolis_fp*vp_north)/(2.0f*GRAV));
-    const float hm = fmaxf(0.0f, eta_bar_m + H_face + (Kx_m + DX*coriolis_fm*vm_north)/(2.0f*GRAV));
+    const float hp = fmaxf(0.0f, eta_bar_p + H_face - (Kx_p + DX*coriolis_fp*vp_north)/(2.0f*gp));
+    const float hm = fmaxf(0.0f, eta_bar_m + H_face + (Kx_m + DX*coriolis_fm*vm_north)/(2.0f*gm));
 
     // Our flux variables Q=(h, u, v)
     const float3 Qp = make_float3(hp, Rp.x, Rp.y);
@@ -301,15 +310,15 @@ float3 computeFFaceFlux(const int i, const int j, const int bx,
 
     // Check if wet-dry face: if so balance potential energy of water level
     if (eta_bar_m == CDKLM_DRY_FLAG && eta_bar_p != CDKLM_DRY_FLAG) {
-        return make_float3(0.0f, 0.5f*GRAV*Qp.x*Qp.x, 0.0f);
+        return make_float3(0.0f, 0.5f*gp*Qp.x*Qp.x, 0.0f);
     }
 
     if (eta_bar_m != CDKLM_DRY_FLAG && eta_bar_p == CDKLM_DRY_FLAG){
-        return make_float3(0.0f, 0.5f*GRAV*Qm.x*Qm.x, 0.0f);
+        return make_float3(0.0f, 0.5f*gm*Qm.x*Qm.x, 0.0f);
     }
 
     // Computed flux
-    return CDKLM16_flux(Qm, Qp);
+    return CDKLM16_flux(Qm, Qp, gm, gp);
 }
 
 
@@ -362,10 +371,13 @@ float3 computeGFaceFlux(const int i, const int j, const int by,
     // Reconstruct momentum along east
     const float up_east = up*east.x + vp*east.y;
     const float um_east = um*east.x + vm*east.y;
+
+    const float gp = ?;
+    const float gm = ?;
     
     // Reconstruct h
-    const float hp = fmaxf(0.0f, eta_bar_p + H_face - ( Ly_p - DY*coriolis_fp*up_east)/(2.0f*GRAV));
-    const float hm = fmaxf(0.0f, eta_bar_m + H_face + ( Ly_m - DY*coriolis_fm*um_east)/(2.0f*GRAV));
+    const float hp = fmaxf(0.0f, eta_bar_p + H_face - ( Ly_p - DY*coriolis_fp*up_east)/(2.0f*gp));
+    const float hm = fmaxf(0.0f, eta_bar_m + H_face + ( Ly_m - DY*coriolis_fm*um_east)/(2.0f*gm));
 
     // Our flux variables Q=(h, v, u)
     // Note that we swap u and v
@@ -374,16 +386,16 @@ float3 computeGFaceFlux(const int i, const int j, const int by,
 
     // Check if wet-dry face: if so balance potential energy of water level
     if (eta_bar_m == CDKLM_DRY_FLAG && eta_bar_p != CDKLM_DRY_FLAG) {
-        return make_float3(0.0f, 0.0f, 0.5f*GRAV*Qp.x*Qp.x);
+        return make_float3(0.0f, 0.0f, 0.5f*gp*Qp.x*Qp.x);
     }
 
     if (eta_bar_m != CDKLM_DRY_FLAG && eta_bar_p == CDKLM_DRY_FLAG){
-        return make_float3(0.0f, 0.0f, 0.5f*GRAV*Qm.x*Qm.x);
+        return make_float3(0.0f, 0.0f, 0.5f*gm*Qm.x*Qm.x);
     }
     
     // Computed flux
     // Note that we swap back u and v
-    const float3 flux = CDKLM16_flux(Qm, Qp);
+    const float3 flux = CDKLM16_flux(Qm, Qp, gm, gp);
     return make_float3(flux.x, flux.z, flux.y);
 }
 
