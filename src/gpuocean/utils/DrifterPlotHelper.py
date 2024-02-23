@@ -555,9 +555,9 @@ def add_kde_on_background(ax, ensemble_obs, drifter_id=0, cmap="Greens", label=N
     for p in desired_probs:
         labels.append(str(int(p*100))+"%")
     ax.legend(proxy, labels, 
-              #prop={'size': 18}, 
+              prop={'size': 16}, 
               labelcolor="black", 
               framealpha=0.9,
-              loc=0
+              loc=2
               )
     
