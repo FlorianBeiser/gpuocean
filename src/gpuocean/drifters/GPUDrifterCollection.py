@@ -3,7 +3,7 @@
 """
 This software is a part of GPU Ocean.
 
-Copyright (C) 2018  SINTEF Digital
+Copyright (C) 2018, 2023  SINTEF Digital
 
 This python class implements a DrifterCollection living on the GPU.
 
@@ -38,6 +38,7 @@ class GPUDrifterCollection(BaseDrifterCollection.BaseDrifterCollection):
                  initialization_cov_drifters=None, \
                  domain_size_x=1.0, domain_size_y=1.0, \
                  gpu_stream=None, \
+                 initialize=False, \
                  wind = WindStress.WindStress(), \
                  wind_drift_factor = 0.0,\
                  block_width = 64):
@@ -89,7 +90,9 @@ class GPUDrifterCollection(BaseDrifterCollection.BaseDrifterCollection):
                             1)
         
         # Initialize drifters:
-        self.uniformly_distribute_drifters(initialization_cov_drifters=initialization_cov_drifters)
+        if initialize:
+            self.uniformly_distribute_drifters(initialization_cov_drifters=initialization_cov_drifters)
+       
         
             
     def copy(self):
