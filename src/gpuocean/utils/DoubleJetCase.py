@@ -211,13 +211,17 @@ class DoubleJetCase:
                 }
             elif model_error == 2:
                 # KL model error
-                self.model_error_args =  {"basis_x_start": 2,
-                                          "basis_x_end": 8,
-                                          "basis_y_start": 1,
-                                          "basis_y_end": 7,
-                                          "kl_decay": 1.25,
-                                          "kl_scaling": 0.025
-                                        }
+                start_basis = 1
+                num_bases = 7
+                self.model_error_args =  {
+                            "basis_x_start": start_basis+1, 
+                            "basis_x_end": start_basis+1+num_bases,
+                            "basis_y_start": start_basis,
+                            "basis_y_end": start_basis+num_bases,
+
+                            "kl_decay": 0.9,
+                            "kl_scaling": 0.001,
+                            }
             else:
                 assert(model_error in [0, 1, 2]), "Invalid value for model__error"
 
